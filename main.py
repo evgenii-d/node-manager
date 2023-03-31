@@ -1,3 +1,4 @@
+''' NodeManager '''
 import sys
 import time
 import socket
@@ -6,7 +7,9 @@ import concurrent.futures
 import requests
 from PySide6.QtGui import QIcon, QAction
 from PySide6.QtCore import QSize, Signal, Qt, QThread, QObject
-from PySide6.QtWidgets import QApplication, QWidget, QMainWindow, QVBoxLayout, QScrollArea, QHBoxLayout, QLabel, QCheckBox, QGroupBox, QToolBar, QPushButton
+from PySide6.QtWidgets import (QApplication, QWidget, QMainWindow,
+                               QVBoxLayout, QScrollArea, QHBoxLayout,
+                               QLabel, QCheckBox, QGroupBox, QToolBar, QPushButton)
 
 
 class Worker(QObject):
@@ -45,6 +48,7 @@ class Worker(QObject):
         return result
 
     def scanNodes(self) -> None | list:
+        ''' Signal for scan worker '''
         networkPrefix = '.'.join(self.localIP().split('.')[0:3])
         nodes = self.scanLAN(self.scanPort, networkPrefix)
         if nodes:
@@ -122,6 +126,7 @@ class MainWindow(QMainWindow):
         t.start()
 
     def addNodes(self, nodes):
+        ''' Add node to layout '''
         for node in nodes:
             if node not in self.nodes:
                 self.nodes.append(node)
@@ -129,6 +134,7 @@ class MainWindow(QMainWindow):
         self.setDisabled(False)
 
     def makeGroupBox(self, **node) -> QGroupBox:
+        ''' Make new GroupBox '''
         url = f"http://{node['address']}:{node['port']}"
 
         groupbox = QGroupBox()
@@ -159,6 +165,7 @@ class MainWindow(QMainWindow):
         return groupbox
 
     def checkNodeName(self):
+        ''' Check node name '''
         while True:
             time.sleep(self.checkNameInterval)
             for group in self.groupBoxes:
@@ -171,18 +178,20 @@ class MainWindow(QMainWindow):
                     continue
 
                 try:
-                    name = requests.get(api, timeout=1).json()['name']
+                    name = requests.get(api, timeout=1).json()
                     data = {'label': nameLabel, 'name': name}
                     self.updateNodeNameSignal.emit(data)
                 except requests.exceptions.RequestException:
                     pass
 
     def addGroupBox(self, node: dict):
+        ''' Add GroupBox to layout '''
         group = self.makeGroupBox(**node)
         self.groupBoxes.append(group)
         self.contentLayout.addWidget(group)
 
     def removeGroupBox(self, groupBox: QGroupBox):
+        ''' Remove GroupBox to layout '''
         address = groupBox.property('address')
 
         self.groupBoxes.remove(groupBox)
@@ -193,13 +202,14 @@ class MainWindow(QMainWindow):
                 break
 
     def disableGroupBoxes(self, state: bool):
+        ''' Disable all GroupBoxes '''
         for group in self.groupBoxes:
             group.setDisabled(state)
 
-    def machineControl(self, command: dict):
+    def machineControl(self, command: str):
+        ''' Control nodes through API '''
         if len(self.groupBoxes) == 0:
             return
-
         self.toolbar.setDisabled(True)
         self.disableGroupBoxes(True)
 
@@ -221,34 +231,40 @@ class MainWindow(QMainWindow):
         self.toolbar.setDisabled(False)
 
     def rebootHandler(self):
+        ''' Reboot selected node '''
         t = threading.Thread(target=self.machineControl,
-                             args=[{'command': 'reboot'}])
+                             args=['reboot'])
         t.daemon = True
         t.start()
 
     def shutdownHandler(self):
+        ''' Shutdown selected node '''
         t = threading.Thread(target=self.machineControl,
-                             args=[{'command': 'shutdown'}])
+                             args=['shutdown'])
         t.daemon = True
         t.start()
 
     def scanHandler(self):
+        ''' Scan signal '''
         self.workerSignal.emit()
         self.setDisabled(True)
 
     def toggleSelection(self):
+        ''' Toggle selection for all nodes in list '''
         state = self.sender().isChecked()
         for group in self.groupBoxes:
             checkbox = group.children()[1]
             checkbox.setChecked(state)
 
     def updateNodeName(self, data):
+        ''' Update node name '''
         try:
             data['label'].setText(data['name'])
         except RuntimeError:
             pass
 
     def clearList(self):
+        ''' Remove all nodes from layout '''
         self.toolbar.setDisabled(True)
         for groupbox in self.groupBoxes[:]:
             self.removeGroupBox(groupbox)
